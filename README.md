@@ -7,3 +7,6 @@ My recent work in IANCU
   - update the python script, "jpl_orbit(orbital_element).py"
 - [20250319]
   - upload the python script, "mercury6_obj.py"
+- [20250322]
+  - delete the python script, "jpl_orbit(orbital_element).py"
+  - upload the python script, "jpl_orbit.py"
