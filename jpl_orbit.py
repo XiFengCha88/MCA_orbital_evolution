@@ -3,6 +3,10 @@ import numpy as n
 import matplotlib.pyplot as Mplot
 import rebound
 import os
+import multiprocessing
+
+cpus = multiprocessing.cpu_count()
+print(cpus)
 
 # data of mars-crossing asteroid (mca)
 def info_mca(mca_id, jd):
@@ -53,11 +57,11 @@ pcolor = ["yellow", "silver", "gold", "blue", "red", "green", "lime", "skyblue",
 
 # time step
 dt = 7.0
-max_count = 5000000
-step = 1
+max_count = 200000
+step = 100
 
 # rebound
-def rebound_simulation():
+def rebound_simulation(dt):
     create_file = open(f"sim_xyzjd{jd}.txt", "wt", encoding = "utf-8")
     create_file.close()
     # add particles
@@ -135,28 +139,25 @@ def rebound_simulation():
                         ts_.append(t)
 
 
-                        print("init_data processing {}%".format(round(t*100/max_count, 2)), sim.dt)
+                    print("init_data processing {}/{}".format(t, max_count))
                         
-                    with open("/home/xi-feng/NCU/Meeting/"+f"sim_xyzJD{jd}.txt", "wt", encoding = "utf-8") as recp:
-                        recp.write(str([position, distance]))
+                with open("/home/xi-feng/NCU/Meeting/"+f"sim_xyzJD{jd}.txt", "wt", encoding = "utf-8") as recp:
+                    recp.write(str([position, distance]))
                         
-                    with open(f"/home/xi-feng/NCU/Meeting/sim_orbital_element_jd{jd}.txt", "wt", encoding = "utf-8") as rec_oe:
-                        orbital_element = {}
-                        orbital_element["name"] = obj_v
-                        orbital_element["element"] = {"t": [],"a": [], "e": [], "i": [], "Ω": [], "ω": []}
-                        orbital_element["element"]["t"] = ts_
-                        orbital_element["element"]["a"] = A
-                        orbital_element["element"]["e"] = E
-                        orbital_element["element"]["i"] = I
-                        orbital_element["element"]["Ω"] = Om
-                        orbital_element["element"]["ω"] = om
-                        rec_oe.write(str(orbital_element))
+                with open(f"/home/xi-feng/NCU/Meeting/sim_orbital_element_jd{jd}.txt", "wt", encoding = "utf-8") as rec_oe:
+                    orbital_element = {}
+                    orbital_element["name"] = obj_v
+                    orbital_element["element"] = {"t": [],"a": [], "e": [], "i": [], "Ω": [], "ω": []}
+                    orbital_element["element"]["t"] = ts_
+                    orbital_element["element"]["a"] = A
+                    orbital_element["element"]["e"] = E
+                    orbital_element["element"]["i"] = I
+                    orbital_element["element"]["Ω"] = Om
+                    orbital_element["element"]["ω"] = om
+                    rec_oe.write(str(orbital_element))
                         
-                        sim.stop()
-                        break
-                    except Exception as err:
-                        print(err.str())
-                        break
+                sim.stop()
+                break
 
             elif existed_particle == "N" or "n":
                 print("You choose [N]")
@@ -261,9 +262,12 @@ def plot_sim_dist(textfile):
 """
 # main operator
 
-rebound_simulation()
-plot_orbital_element(f"/home/xi-feng/NCU/Meeting/sim_orbital_element_jd{jd}.txt")
-#plot_sim_dist("/home/xi-feng/NCU/Meeting/"+f"sim_xyzJD{jd}.txt")
+if __name__ == "__main__":
+    pool = multiprocessing.Pool(cpus)
+    pool_output = pool.map(rebound_simulation(dt))
+    print(pool_output)
+    plot_orbital_element(f"/home/xi-feng/NCU/Meeting/sim_orbital_element_jd{jd}.txt")
+    #plot_sim_dist("/home/xi-feng/NCU/Meeting/"+f"sim_xyzJD{jd}.txt")
 
     
     
