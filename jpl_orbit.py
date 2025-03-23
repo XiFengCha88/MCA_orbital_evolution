@@ -3,10 +3,6 @@ import numpy as n
 import matplotlib.pyplot as Mplot
 import rebound
 import os
-import multiprocessing
-
-cpus = multiprocessing.cpu_count()
-print(cpus)
 
 # data of mars-crossing asteroid (mca)
 def info_mca(mca_id, jd):
@@ -57,12 +53,12 @@ pcolor = ["yellow", "silver", "gold", "blue", "red", "green", "lime", "skyblue",
 
 # time step
 dt = 7.0
-max_count = 200000
+max_count = 2000000
 step = 100
 
 # rebound
-def rebound_simulation(dt):
-    create_file = open(f"sim_xyzjd{jd}.txt", "wt", encoding = "utf-8")
+def rebound_simulation(dt, max_count, step):
+    create_file = open(f"sim_xyzJD{jd}.txt", "wt", encoding = "utf-8")
     create_file.close()
     # add particles
     while True:
@@ -262,12 +258,9 @@ def plot_sim_dist(textfile):
 """
 # main operator
 
-if __name__ == "__main__":
-    pool = multiprocessing.Pool(cpus)
-    pool_output = pool.map(rebound_simulation(dt))
-    print(pool_output)
-    plot_orbital_element(f"/home/xi-feng/NCU/Meeting/sim_orbital_element_jd{jd}.txt")
-    #plot_sim_dist("/home/xi-feng/NCU/Meeting/"+f"sim_xyzJD{jd}.txt")
+rebound_simulation(dt, max_count, step)
+plot_orbital_element(f"/home/xi-feng/NCU/Meeting/sim_orbital_element_jd{jd}.txt")
+#plot_sim_dist("/home/xi-feng/NCU/Meeting/"+f"sim_xyzJD{jd}.txt")
 
     
     
