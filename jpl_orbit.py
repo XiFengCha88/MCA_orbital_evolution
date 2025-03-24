@@ -25,8 +25,14 @@ def mca_rv(mca_id):
 
 # object's position and velocity
 obj = {"90000091": "Encke", "132": "Aethra", "102528": "1999 US3"}
-obj_k, obj_v = list(obj.keys())[-1], list(obj.values())[-1]
-jd = 2457542.5 # initial epoch time
+obj_k, obj_v = list(obj.keys())[1], list(obj.values())[1]
+jd = 2457567.5 # initial epoch time
+
+""" 
+=== EPOCH TIME IN HORIZONS === 
+132 Aethra     | jd2457567.5
+102528 1999US3 | jd2457542.5
+"""
 
 # object's orbital element
 o_a, o_e, o_i, o_Om, o_om = mca_rv(obj_v)
@@ -53,19 +59,22 @@ pcolor = ["yellow", "silver", "gold", "blue", "red", "green", "lime", "skyblue",
 
 # time step
 dt = 7.0
-max_count = 2000000
-step = 100
+max_count = 600000
+step = 1040
 
 # rebound
 def rebound_simulation(dt, max_count, step):
-    create_file = open(f"sim_xyzJD{jd}.txt", "wt", encoding = "utf-8")
-    create_file.close()
     # add particles
     while True:
         try:
             select_existed_particle = input("Do you want to use the existed data for initial condition? [Y/N] Ans: ")
             if select_existed_particle == "Y" or "y":
                 print("You choose [Y]")
+                
+                # create the position file
+                create_file = open(f"sim_xyzJD{jd}.txt", "wt", encoding = "utf-8")
+                create_file.close()
+                
                 os.chdir(resu_dir)
                 
                 # begin the simulation
@@ -90,51 +99,54 @@ def rebound_simulation(dt, max_count, step):
                     plantary_position = {f"x_{p}": [], f"y_{p}": [], f"z_{p}": []}
                     position[p] = plantary_position
                 position[obj_v] = {f"x_{obj_v}": [], f"y_{obj_v}": [], f"z_{obj_v}": []}
-                        
+                
+                # distance from the object to each planet     
                 distance = {}
                 for p in planet_l:
                     distance[f"r_{p}"] = []
-   
+                
+                # start processing
                 for t in range(max_count):
-                    # print(f"dt = {sim.dt}")
+                    # simulate with time step
                     sim.move_to_hel()
                     sim.steps(step)
-                            
-                    particles = sim.particles[-1]
-                    #print(particles.orbit())
                     
-                    # add distance from the object to each planet        
+                    # adding position of the object        
+                    particles = sim.particles[-1]
+                    position[obj_v][f"x_{obj_v}"].append(round(particles.x, 4))
+                    position[obj_v][f"y_{obj_v}"].append(round(particles.y, 4))
+                    position[obj_v][f"z_{obj_v}"].append(round(particles.z, 4))
+                        
+                    # adding orbital elements of the object
+                    a = round(float(particles.a), 4)
+                    e = round(float(particles.e), 4)
+                    i = round(float(particles.inc)* 180 / n.pi, 4)
+                    Ω = round(float(particles.Omega)* 180 / n.pi, 4) 
+                    ω = round(float(particles.omega)* 180 / n.pi, 4)
+                                
+                    A.append(a)
+                    E.append(e)
+                    I.append(i)
+                    Om.append(Ω)
+                    om.append(ω)
+                    ts_.append(t)
+                           
                     for p in planet_l:
+                        # add position of each planet 
                         pos_planet = position[p]
                         pos_planet[f"x_{p}"].append(round(sim.particles[planet_l.index(p)].x, 4))
                         pos_planet[f"y_{p}"].append(round(sim.particles[planet_l.index(p)].y, 4))
                         pos_planet[f"z_{p}"].append(round(sim.particles[planet_l.index(p)].z, 4))
-                                
+                        
+                        # add distance from the object to each planet         
                         opx = abs((position[p][f"x_{p}"][-1] - particles.x)) ** 2 
                         opy = abs((position[p][f"y_{p}"][-1] - particles.y)) ** 2
                         opz = abs((position[p][f"z_{p}"][-1] - particles.z)) ** 2
                         
                         distop = round((opx + opy + opz) ** 0.5, 4)
                         distance[f"r_{p}"].append(distop)
-                            
-                        position[obj_v][f"x_{obj_v}"].append(round(particles.x, 4))
-                        position[obj_v][f"y_{obj_v}"].append(round(particles.y, 4))
-                        position[obj_v][f"z_{obj_v}"].append(round(particles.z, 4))
-                            
-                        a = round(float(particles.a), 4)
-                        e = round(float(particles.e), 4)
-                        i = round(float(particles.inc)* 180 / n.pi, 4)
-                        Ω = round(float(particles.Omega)* 180 / n.pi, 4) 
-                        ω = round(float(particles.omega)* 180 / n.pi, 4)
-                                
-                        A.append(a)
-                        E.append(e)
-                        I.append(i)
-                        Om.append(Ω)
-                        om.append(ω)
-                        ts_.append(t)
 
-
+                    # checkpoint
                     print("init_data processing {}/{}".format(t, max_count))
                         
                 with open("/home/xi-feng/NCU/Meeting/"+f"sim_xyzJD{jd}.txt", "wt", encoding = "utf-8") as recp:
@@ -174,8 +186,29 @@ def plot_orbital_element(textfile):
    I = readfile["element"]["i"]
    Om = readfile["element"]["Ω"]
    om = readfile["element"]["ω"]
-
-   fig = Mplot.figure(figsize = (40, 10))
+   
+   orbital_file.close()
+   
+   """
+   count_s0 = []
+   for i in range(len(ts_)):
+       if A[i] < 0:
+           count_s0.append(i)
+       else:
+           continue
+   print(len(count_s0))
+   
+   for ri in range(len(count_s0)):
+       ts_.remove(ts_[max(count_s0)])
+       A.remove(A[max(count_s0)])
+       E.remove(E[max(count_s0)])
+       I.remove(I[max(count_s0)])
+       Om.remove(Om[max(count_s0)])
+       om.remove(om[max(count_s0)])
+       count_s0.remove(max(count_s0))
+   """
+   
+   fig = Mplot.figure(figsize = (20, 10))
    axa, axe, axi, axOm, axom = fig.subplots(5, 1)
    axom.set_xlabel(f"Evolution time (yr)")
    axa.set_ylabel("a (AU)")
@@ -184,7 +217,7 @@ def plot_orbital_element(textfile):
    axOm.set_ylabel("Ω (deg)")
    axom.set_ylabel("ω (deg)")
                           
-   delta_time = [t * step * dt / 365.24 for t in range(max_count)]
+   delta_time = [t * step * dt / 365.24 for t in ts_]
    axa.scatter(delta_time, A, c = "black", s = 0.25)
    axe.scatter(delta_time, E, c = "black", s = 0.25)
    axi.scatter(delta_time, I, c = "black", s = 0.25)
@@ -207,52 +240,50 @@ def plot_orbital_element(textfile):
    Mplot.ylabel("q (AU)") 
    Mplot.savefig(f"para_incVSq(jd{jd}).png")
    Mplot.close()  
-   
-   orbital_file.close()
 
 def plot_sim_dist(textfile):
    if "data_frame" not in os.listdir():
        os.mkdir("data_frame")
    os.chdir("data_frame")
    
-   simt = [t / 365.24 for t in ts_]
+   simt = [dt * step * t / 365.24 for t in range(max_count)]
    dp = []
    
    pos = {}
    with open(textfile, "rt") as recp:
        pos = eval(recp.readlines()[0])[0]
    
-   for i in range(0, max_count, 10):
-       fig = Mplot.figure(figsize = (10, 10))
-       ax = fig.add_subplot()
-       ax.set_xlim(-10, 10)
-       ax.set_ylim(-10, 10)
-       ax.set_xlabel("x(AU)")
-       ax.set_ylabel("y(AU)")
-       #ax.set_zlabel("z(AU)")
-       for p in range(len(planet_l)):
-           ax.scatter(pos[planet_l[p]][f"x_{planet_l[p]}"][i], pos[planet_l[p]][f"y_{planet_l[p]}"][i], s = 75, c = pcolor[p], label = planet_l[p])
-       ax.scatter(pos[obj_v][f"x_{obj_v}"][i], pos[obj_v][f"y_{obj_v}"][i], s = 75, c = pcolor[-1], label = obj_v)
-       ax.legend()
-       Mplot.savefig(f"para_distri_JD{jd}_{str(i).zfill(7)}.png")
-       print("finish loading index", i)
-       Mplot.close()
+   fig = Mplot.figure(figsize = (10, 10))
+   ax = fig.add_subplot()
+   ax.set_xlim(-10, 10)
+   ax.set_ylim(-10, 10)
+   #ax.set_zlim(-10, 10)
+   ax.set_xlabel("y(AU)")
+   ax.set_ylabel("z(AU)")
+   #ax.set_zlabel("z(AU)")
+   for p in planet_l:
+       ax.scatter(pos[p][f"y_{p}"], pos[p][f"z_{p}"], s = 0.25, c = pcolor[planet_l.index(p)], alpha = 0.5, label = p)
+   ax.scatter(pos[obj_v][f"y_{obj_v}"], pos[obj_v][f"z_{obj_v}"], s = 0.25, c = pcolor[-1], alpha = 0.1, label = obj_v)
+   ax.legend()
+   Mplot.savefig(f"para_distri_JD{jd}.png")
+   Mplot.close()
 
-   """
-   fig2 = Mplot.figure(figsize = (80, 10))
+   fig2 = Mplot.figure(figsize = (20, 5))
    ax = fig2.add_subplot()
    
    with open(textfile, "rt") as recp:
       dop = eval(recp.readlines()[0])[1]
       for d in dop.keys():
           dp = dop[d]
-          ax.plot(simt, dp, pcolor[list(dop.keys()).index(d)], linewidth = 1, label = d)
-   ax.set_xlabel("evolution time (yr)")
-   ax.set_ylabel("distance (AU)")
-   ax.legend()
-   Mplot.savefig("planet_distance.png") 
+          #ax.plot(simt, [n.log10(dp[i]) for i in range(len(dp))], pcolor[list(dop.keys()).index(d)], linewidth = 3, alpha = 0.2, label = d)
+      ax.plot(simt, [n.log10(0.3381) for i in range(len(dp))], "r--", linewidth = 3, label = "Hill radius of Jupiter")
+      ax.plot(simt, [n.log10(dop["r_Jupiter"][i]) for i in range(len(dp))], color = pcolor[5], linewidth = 3, alpha = 0.5, label = "r_Jupiter")
+   ax.set_xlabel("evolution time (yr)", fontsize = 12)
+   ax.set_ylabel("log$_{10}$(distance (AU))", fontsize = 12)
+   ax.legend(prop = {"size": 12})
+   Mplot.savefig(f"planet_distance_jd{jd}.png") 
    Mplot.close()           
-   """
+
 """
 ========================================================================================================================================================
 """
@@ -262,9 +293,5 @@ rebound_simulation(dt, max_count, step)
 plot_orbital_element(f"/home/xi-feng/NCU/Meeting/sim_orbital_element_jd{jd}.txt")
 #plot_sim_dist("/home/xi-feng/NCU/Meeting/"+f"sim_xyzJD{jd}.txt")
 
-    
-    
-    
-    
-    
- 
+
+
