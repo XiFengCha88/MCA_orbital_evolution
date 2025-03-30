@@ -13,9 +13,6 @@ def info_mca(mca_id, jd):
 # the mca data's orbital element
 def mca_rv(mca_id):
     selected_mca = info_mca(mca_id, jd)
-    #x, y, z = selected_mca["x"], selected_mca["y"], selected_mca["z"]
-    #vx, vy, vz = selected_mca["vx"], selected_mca["vy"], selected_mca["vz"]
-    #return [x, y, z, vx, vy, vz]
     a = selected_mca["a"]
     e = selected_mca["e"]
     i = selected_mca["incl"]
@@ -24,26 +21,20 @@ def mca_rv(mca_id):
     return [a, e, i/(180/n.pi), Ω/(180/n.pi), ω/(180/n.pi)]
 
 # object's position and velocity
-obj = {"90000091": "Encke", "132": "Aethra", "102528": "1999 US3"}
+obj = {"90000091": "Encke", "132": "Aethra", "102528": "1999US3", "433": "Eros"}
 obj_k, obj_v = list(obj.keys())[-1], list(obj.values())[-1]
-jd = 2457542.5 # initial epoch time
+jd = 2453311.5 # initial epoch time
 
 """ 
   === EPOCH TIME IN HORIZONS === 
         2P/Encke | jd2459778.5
       132 Aethra | jd2457567.5
   102528 1999US3 | jd2457542.5
+        422 Eros | jd2453311.5
 """
 
 # object's orbital element
 o_a, o_e, o_i, o_Om, o_om = mca_rv(obj_k)
-
-# result
-obj_t = info_mca(f"{obj_k}", jd)["datetime_jd"]
-jdate = [t for t in obj_t]
-
-# modify the datetime
-mjdate = [jdate[i] - jdate[0] for i in range(len(jdate))]
 
 # record position data
 resu_dir  = "Orbital_Result"
@@ -59,9 +50,15 @@ planet_l = ["Sun", "Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Ur
 pcolor = ["yellow", "silver", "gold", "blue", "red", "green", "lime", "skyblue", "violet", "black"]
 
 # time step
-dt = 16.8017298426161 * 2.5
-max_count = 2000000
-step = 1000
+orbit_period = 643.1403141999031
+dt = 0.02 * orbit_period
+max_count = 10000
+step = 4000
+"""
+  === ORBITAL PERIOD (days) ===
+  102528 1999US3 | 1680.17298426161
+        433 Eros | 643.1403141999031
+"""
 
 # rebound
 def rebound_simulation(dt, max_count, step):
@@ -110,7 +107,7 @@ def rebound_simulation(dt, max_count, step):
                 for t in range(max_count):
                     # simulate with time step
                     sim.move_to_hel()
-                    sim.step()
+                    sim.steps(step)
                     
                     # adding position of the object        
                     particles = sim.particles[-1]
@@ -148,7 +145,7 @@ def rebound_simulation(dt, max_count, step):
                         distance[f"r_{p}"].append(distop)
 
                     # checkpoint
-                    print("init_data processing {}/{}".format(t, max_count), sim.t)
+                    print("init_data processing {}/{}".format(t+1, max_count))
                 
                 # write data of position and distance   
                 with open("/home/xi-feng/NCU/Meeting/"+f"sim_xyzJD{jd}.txt", "wt", encoding = "utf-8") as recp:
@@ -197,7 +194,7 @@ def plot_orbital_element(textfile):
    axa, axe, axi, axOm, axom = fig.subplots(5, 1)
    axom.set_xlabel(f"Evolution time (yr)")
    axa.set_ylabel("a (AU)")
-   axa.set_yscale("log")
+   #axa.set_yscale("log")
    axe.set_ylabel("e")
    axi.set_ylabel("i (deg)")
    axOm.set_ylabel("Ω (deg)")
@@ -231,7 +228,7 @@ def plot_sim_dist(textfile):
        os.mkdir("data_frame")
    os.chdir("data_frame")
    
-   simt = [dt * t / 365.24 for t in range(max_count)]
+   simt = [dt * step * t / 365.24 for t in range(max_count)]
    dp = []
    
    pos = {}
@@ -248,7 +245,7 @@ def plot_sim_dist(textfile):
    #ax.set_zlabel("z(AU)")
    for p in planet_l:
        ax.scatter(pos[p][f"x_{p}"], pos[p][f"y_{p}"], s = 0.25, c = pcolor[planet_l.index(p)], alpha = 0.5, label = p)
-   ax.scatter(pos[obj_v][f"x_{obj_v}"], pos[obj_v][f"y_{obj_v}"], s = 0.25, c = pcolor[-1], alpha = 0.1, label = obj_v)
+   ax.scatter(pos[obj_v][f"x_{obj_v}"], pos[obj_v][f"y_{obj_v}"], s = 0.25, c = pcolor[-1], label = obj_v)
    ax.legend()
    Mplot.savefig(f"para_distri_JD{jd}.png")
    Mplot.close()
@@ -261,10 +258,11 @@ def plot_sim_dist(textfile):
       for d in dop.keys():
           dp = dop[d]
           #ax.plot(simt, [n.log10(dp[i]) for i in range(len(dp))], pcolor[list(dop.keys()).index(d)], linewidth = 3, alpha = 0.2, label = d)
-      ax.plot(simt, [n.log10(3 * 0.3381) for i in range(len(dp))], "r--", linewidth = 3, label = "3 * hill radius of Jupier$(AU)")
-      ax.plot(simt, [n.log10(dop["r_Jupiter"][i]) for i in range(len(dp))], color = pcolor[5], linewidth = 3, alpha = 0.5, label = "r_Jupiter")
+      ax.plot(simt, [n.log10(3 * 0.0098) for i in range(len(dp))], "r--", linewidth = 3, label = "3 * hill radius of Earth")
+      #ax.plot(simt, [n.log10(3 * 0.3381) for i in range(len(dp))], "r--", linewidth = 3, label = "3 * hill radius of Jupier")
+      ax.plot(simt, [n.log10(dop["r_Earth"][i]) for i in range(len(dp))], color = pcolor[3], linewidth = 3, alpha = 0.5, label = "r_Earth")
    ax.set_xlabel("evolution time (yr)", fontsize = 12)
-   ax.set_ylabel("distance (AU))", fontsize = 12)
+   ax.set_ylabel("log$_{10}$(distance (AU))", fontsize = 12)
    ax.legend(prop = {"size": 12})
    Mplot.savefig(f"planet_distance_jd{jd}.png") 
    Mplot.close()           
@@ -274,9 +272,9 @@ def plot_sim_dist(textfile):
 """
 # main operator
 
-rebound_simulation(dt, max_count)
+rebound_simulation(dt, max_count, step)
 plot_orbital_element(f"/home/xi-feng/NCU/Meeting/sim_orbital_element_jd{jd}.txt")
-#plot_sim_dist("/home/xi-feng/NCU/Meeting/"+f"sim_xyzJD{jd}.txt")
+plot_sim_dist("/home/xi-feng/NCU/Meeting/"+f"sim_xyzJD{jd}.txt")
 
 
 
