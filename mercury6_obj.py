@@ -1,4 +1,5 @@
 import os, sys, glob
+import numpy as n
 import matplotlib.pyplot as Mplot
 
 """
@@ -6,7 +7,7 @@ variables
 """
 raw_path = os.path.realpath(sys.argv[0])
 raw_direc = os.path.dirname(raw_path)
-work_direc = "MERCURY"
+work_direc = "Orbital_Result/Eros/mercury_case2"
 classfile = ".aei"
 
 aei_classfile = os.path.join(raw_direc + f"/{work_direc}", "**", f"*{classfile}")
@@ -65,7 +66,7 @@ def rec_multi_aeifile():
 def plot_orbital_element():
     fig = Mplot.figure(figsize = (10, 10))
     ax_a, ax_e, ax_Om, ax_om, ax_i = fig.subplots(5, 1)
-    ax_a.set_title(f"10 clones of Eros's orbital evolution")
+    ax_a.set_title(f"100 clones of Eros's orbital evolution")
     ax_i.set_xlabel("Evolution time (Myr)")
     ax_a.set_ylabel("a (AU)")
     #ax_a.set_yscale("log")
@@ -80,7 +81,7 @@ def plot_orbital_element():
     # saved case
     # [5, 19, 22, 26, 27, 34, 41, 61, 62, 98]
     
-    caselist = [list(rawdata.keys())[ID] for ID in [5, 19, 22, 26, 27, 34, 41, 61, 62, 98]]
+    caselist = [list(rawdata.keys())[ID] for ID in range(len(list(rawdata.keys())))]
     
     for data in caselist:
         print("loading", data + classfile, "...")
@@ -129,14 +130,16 @@ def plot_orbital_element():
     print("finish scattering 5/5")    
     
     ax_a.legend()
-    Mplot.savefig(f"para_data_mercury_jd{jd}.png")
+    Mplot.savefig(f"para_data_mercury_jd{jd}_case2.png")
     Mplot.close()
     
     figai = Mplot.figure(figsize = (10, 10))
     axai = figai.add_subplot()
-    axai.set_title("a-i relation of Eros's orbital evolution with 10 clones")
+    axai.set_title("a-i relation of Eros's orbital evolution with 100 clones")
     axai.set_xlabel("a (AU)")
     axai.set_ylabel("i (deg)")
+    axai.set_xlim(0.7, 2)
+    axai.set_ylim(0, 25)
     
     quartor = int(len(rawdata[init_data]["t"]) / 4)
     for cp in caselist:
@@ -146,10 +149,89 @@ def plot_orbital_element():
                      s = 0.5, c = "orange")
         axai.scatter([rawdata[cp]["a"][i] for i in range(3*quartor, 4*quartor)], [rawdata[cp]["i"][i] for i in range(3*quartor, 4*quartor)], 
                      s = 0.5, c = "green")
-    axai.legend(["0 ~ τ/4", "τ/4 ~ τ/2", "τ/2 ~ 3τ/4", "3τ/4 ~ τ"])
-    Mplot.savefig(f"paraAvsI_jd{jd}_mercury.png")
+        axai.scatter(rawdata[cp]["a"][0], rawdata[cp]["i"][0], s = 100, c = "black", marker = "*")
+    axai.legend(["0 ~ τ/4", "τ/4 ~ τ/2", "τ/2 ~ 3τ/4", "3τ/4 ~ τ", "initial value"])
+    Mplot.savefig(f"paraAvsI_jd{jd}_mercury_case2.png")
     Mplot.close()
     
+    figae = Mplot.figure(figsize = (10, 10))
+    axae = figae.add_subplot()
+    axae.set_title("a-e relation of Eros's orbital evolution with 100 clones")
+    axae.set_xlabel("a (AU)")
+    axae.set_ylabel("e")
+    for cp in caselist:
+        axae.scatter([rawdata[cp]["a"][i] for i in range(quartor)], [rawdata[cp]["e"][i] for i in range(quartor)], s = 0.5, c = "blue")
+        axae.scatter([rawdata[cp]["a"][i] for i in range(quartor, 2*quartor)], [rawdata[cp]["e"][i] for i in range(quartor, 2*quartor)], s = 0.5, c = "red")
+        axae.scatter([rawdata[cp]["a"][i] for i in range(2*quartor, 3*quartor)], [rawdata[cp]["e"][i] for i in range(2*quartor, 3*quartor)], 
+                     s = 0.5, c = "orange")
+        axae.scatter([rawdata[cp]["a"][i] for i in range(3*quartor, 4*quartor)], [rawdata[cp]["e"][i] for i in range(3*quartor, 4*quartor)], 
+                     s = 0.5, c = "green")
+        axae.scatter(rawdata[cp]["a"][0], rawdata[cp]["e"][0], s = 100, c = "black", marker = "*")
+    axae.plot(n.linspace(1.3, 2.1, 1000), [1 - 1.3 / i for i in n.linspace(1.3, 2.1, 1000)], color = "black", linestyle = "--", linewidth = 3)
+    axae.plot(n.linspace(1.017, 2.1, 1000), [1 - 1.017 / i for i in n.linspace(1.017, 2.1, 1000)], color = "black", linestyle = "--", linewidth = 3)
+    axae.plot(n.linspace(1.58, 2.1, 1000), [1 - 1.58 / i for i in n.linspace(1.58, 2.1, 1000)], color = "black", linestyle = "--", linewidth = 3)
+    axae.plot(n.linspace(1.67, 2.1, 1000), [1 - 1.67 / i for i in n.linspace(1.67, 2.1, 1000)], color = "black", linestyle = "--", linewidth = 3)
+    axae.plot(n.linspace(0.6, 0.983, 1000), [0.983 / i - 1 for i in n.linspace(0.6, 0.983, 1000)], color = "black", linestyle = "-.", linewidth = 3)
+    axae.plot([1.0] * 1000, n.linspace(0.0, 0.64, 1000), color = "black", linestyle = "--", linewidth = 1.5)    
+    axae.legend(["0 ~ τ/4", "τ/4 ~ τ/2", "τ/2 ~ 3τ/4", "3τ/4 ~ τ", "initial value"])
+    axae.text(2.05, 1 - 1.67 / 2.1 + 0.01, "q$_{1.67}$", {"fontsize": 14})
+    axae.text(2.05, 1 - 1.3 / 2.1 + 0.01, "q$_{1.3}$", {"fontsize": 14})
+    axae.text(2.05, 1 - 1.58 / 2.1 + 0.01, "q$_{1.58}$", {"fontsize": 14})
+    axae.text(2.05, 1 - 1.017 / 2.1 + 0.01, "q$_{1.017}$", {"fontsize": 14})
+    axae.text(0.6, 0.983 / 0.6 - 1 + 0.01, "Q$_{0.983}$", {"fontsize": 14})
+    Mplot.savefig(f"paraAvsE_jd{jd}_mercury_case2.png")
+    Mplot.close()
+
+def classify_element(dirname = ""):
+    clone_count = 1
+
+    rawfile_path = os.path.realpath(sys.argv[0])
+    rawfile_dir  = os.path.dirname(rawfile_path)
+    data_class   = sorted(glob.glob(os.path.join(rawfile_dir + f"/{dirname}", "**", f"*.aei"), recursive = True)) 
+    
+    # collect clone data
+    data_t, data_a, data_e, data_q, data_Q = [], [], [], [], []
+    for rawfile in data_class:
+        if "000" in rawfile:  
+            print(f"open {rawfile}...")
+            data_oe = orbital_element(rawfile)
+            data_t = data_oe["t"]
+            data_a.append(data_oe["a"])
+            data_e.append(data_oe["e"])
+        else:
+            continue
+            
+    data_q += [[data_a[a][i] * (1 - data_e[a][i]) for i in range(len(data_a[a]))] for a in range(len(data_a))]
+    data_Q += [[data_a[a][i] * (1 + data_e[a][i]) for i in range(len(data_a[a]))] for a in range(len(data_a))]
+    
+    clone_count = len(data_a) - 4
+    print("total data:", clone_count)
+    
+    # classification counting
+    print("start classifying the data")
+    q_minus, q_balance, q_plus = 0, -4, 0
+    
+    for cp in range(len(data_a)):
+        #asteroid_class_ = []
+        print(f"classify case {cp + 1}/{len(data_a)}")
+       
+        #counting
+        if data_q[cp][0] > data_q[cp][-1] and data_q[cp][-1] < 1.017:
+            q_minus += 1
+        elif data_q[cp][0] < data_q[cp][-1] and data_q[cp][-1] > 1.3:
+            q_plus += 1
+        else:
+            q_balance += 1
+            continue
+    
+    # print the result
+    print(f"(q-, q_0, q+) = {(q_minus, q_balance, q_plus)}")
+    print(f"probability of ecountering earth's orbit =", round(q_minus / clone_count, 4))
+    print(f"probability of the balance of orbit      =", round(q_balance / clone_count, 4))
+    print(f"probability of escaping earth's orbit    =", round(q_plus / clone_count, 4))
+
 plot_orbital_element()
+#classify_element("Orbital_Result/Eros/")
+
 
 

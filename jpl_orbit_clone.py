@@ -5,7 +5,8 @@ import json
 import numpy as n
 import matplotlib.pyplot as Mplot
 import rebound
-import os
+import os, sys, glob
+import csv
 
 # data of mars-crossing asteroid (mca)
 def info_mca(mca_id, jd):
@@ -76,6 +77,7 @@ def clone_data(mca_id, num = 100):
     for i in range(num):
         gaussian_random = n.matrix(n.random.normal(n.zeros(6), diagonal_element ** 0.5)).reshape(6, 1)
         gaussian_evs    = cm_eigenvectors * gaussian_random
+        
         clone_e.append(float(init_e + gaussian_evs[0]))
         clone_a.append(float((init_a + gaussian_evs[1])))
         clone_i.append(float((init_i + gaussian_evs[5]) / (180/n.pi)))
@@ -88,6 +90,7 @@ def clone_data(mca_id, num = 100):
 # object's position and velocity
 obj = {"90000091": "Encke", "132": "Aethra", "102528": "1999US3", "433": "Eros"}
 obj_k, obj_v = list(obj.keys())[-1], list(obj.values())[-1]
+pjd = 2457724.5
 jd = 2453311.5
 """ 
   === EPOCH TIME IN HORIZONS === 
@@ -101,7 +104,7 @@ jd = 2453311.5
 
 # record positional data
 resu_dir  = "Orbital_Result"
-caseid = "case" + str(6)
+caseid = "case" + str(5)
 
 """
 ========================================================================================================================================================
@@ -147,7 +150,11 @@ def rebound_simulation(integrate_dt, step, max_number, clone_num = 100):
                     for p in planet_l:
                         sim.add(p, date = f"JD{jd}")
                     sim.add(m = 0, a = clone_a[ci], e = clone_e[ci], inc = clone_i[ci], Omega = clone_Om[ci], omega = clone_om[ci]) # Object
-                            
+                    
+                    for i in range(len(sim.particles)-1):
+                        print(planet_l[i], f"x = {sim.particles[i].x}", f"y = {sim.particles[i].y}", f"z = {sim.particles[i].z}", f"at jd  = {jd}", sep = "\t")
+                    print("Eros", f"x = {sim.particles[-1].x}", f"y = {sim.particles[-1].y}", f"z = {sim.particles[-1].z}", f"at jd = {jd}", sep = "\t")
+ 
                     sim.t = 0
                     sim.dt = integrate_dt
                     sim.integrator = "MERCURIUS"
@@ -194,7 +201,10 @@ def rebound_simulation(integrate_dt, step, max_number, clone_num = 100):
                     orbital_element["element"]["Ω"] = Om
                     orbital_element["element"]["ω"] = om
                     rec_oe.write(str(orbital_element))
-                    
+                
+                with open(f"/home/xi-feng/NCU/Meeting/clone{clone_num}_sim_position_jd{jd}_{caseid}.csv", "w", encoding = "utf-8") as rec_pos:
+                    writer = csv.writer()
+                 
             elif existed_particle == "N" or "n":
                 print("You choose [N]")
                 xyzvkeys = []
@@ -220,7 +230,7 @@ def plot_orbital_element(textfile):
     fig = Mplot.figure(figsize = (10, 10))
     axa, axe, axOm, axom, axi = fig.subplots(5, 1)
     #axa, axe = fig.subplots(2, 1)
-    axa.set_title(f"10 clones of {obj_v}'s orbital evolution")
+    axa.set_title(f"100 clones of {obj_v}'s orbital evolution")
     
     #axa.set_ylim(0.1, 200)
     axi.set_xlabel("Evolution time (yr)")
@@ -243,7 +253,7 @@ def plot_orbital_element(textfile):
     case5: [1, 2, 9, 29, 34, 37, 61, 74, 78, 88]
     case6: [3, 8, 18, 34, 39, 43, 64, 69, 70, 94]
     """
-    datacase = [3, 8, 18, 34, 39, 43, 64, 69, 70, 94]
+    datacase = [i for i in range(100)]
     
     for cp in datacase:
         print("case", cp, [min(semimajor_axis[cp]), max(semimajor_axis[cp])])
@@ -265,9 +275,11 @@ def plot_orbital_element(textfile):
     #plot a-i relation
     fig_ai = Mplot.figure(figsize = (10, 10))
     ax_ai = fig_ai.subplots()
-    ax_ai.set_title(f"a-i relation of {obj_v}'s orbital evolution with 10 clones") 
+    ax_ai.set_title(f"a-i relation of {obj_v}'s orbital evolution with 100 clones") 
     ax_ai.set_xlabel("a (AU)")
     ax_ai.set_ylabel("i (deg)")
+    ax_ai.set_xlim(0.7, 2)
+    ax_ai.set_ylim(0, 25)
     
     for cp in datacase:
         quartor = int(len(semimajor_axis[cp]) / 4)
@@ -278,18 +290,129 @@ def plot_orbital_element(textfile):
         ax_ai.scatter([semimajor_axis[cp][i] for i in range(2 * quartor, 3 * quartor)], [inclination[cp][i] for i in range(2 * quartor, 3 * quartor)],
                       s = 0.5, c = "orange") 
         ax_ai.scatter([semimajor_axis[cp][i] for i in range(3 * quartor, 4 * quartor)], [inclination[cp][i] for i in range(3 * quartor, 4 * quartor)],
-                      s = 0.5, c = "green")     
-    ax_ai.legend(["0 ~ τ/4", "τ/4 ~ τ/2", "τ/2 ~ 3τ/4", "3τ/4 ~ τ"])   
+                      s = 0.5, c = "green")  
+        ax_ai.scatter(semimajor_axis[cp][0], inclination[cp][0], s = 100, c = "black", marker = "*", edgecolor = "black")     
+   
+    ax_ai.legend(["0 ~ τ/4", "τ/4 ~ τ/2", "τ/2 ~ 3τ/4", "3τ/4 ~ τ", "initial value"]) # τ: simulation time 
     Mplot.savefig(f"paraAvsI_jd{jd}_{caseid}.png")
     Mplot.close()
-
+    
+    fig_ae = Mplot.figure(figsize = (10, 10))
+    ax_ae = fig_ae.subplots()
+    ax_ae.set_title(f"a-e relation of {obj_v}'s orbital evolution with 100 clones") 
+    ax_ae.set_xlabel("a (AU)")
+    ax_ae.set_ylabel("e")
+   
+    for cp in datacase:
+        quartor = int(len(semimajor_axis[cp]) / 4)
+        ax_ae.scatter([semimajor_axis[cp][i] for i in range(quartor)], [eccentricity[cp][i] for i in range(quartor)],
+                      s = 0.5, c = "blue")
+        ax_ae.scatter([semimajor_axis[cp][i] for i in range(quartor, 2 * quartor)], [eccentricity[cp][i] for i in range(quartor, 2 * quartor)],
+                      s = 0.5, c = "red")
+        ax_ae.scatter([semimajor_axis[cp][i] for i in range(2 * quartor, 3 * quartor)], [eccentricity[cp][i] for i in range(2 * quartor, 3 * quartor)],
+                      s = 0.5, c = "orange") 
+        ax_ae.scatter([semimajor_axis[cp][i] for i in range(3 * quartor, 4 * quartor)], [eccentricity[cp][i] for i in range(3 * quartor, 4 * quartor)],
+                      s = 0.5, c = "green")     
+        ax_ae.scatter(semimajor_axis[cp][0], eccentricity[cp][0], s = 100, c = "black", marker = "*", edgecolor = "black")      
+    ax_ae.plot(n.linspace(1.3, 2.1, 1000), [1 - 1.3 / i for i in n.linspace(1.3, 2.1, 1000)], color = "black", linestyle = "--", linewidth = 3)
+    ax_ae.plot(n.linspace(1.017, 2.1, 1000), [1 - 1.017 / i for i in n.linspace(1.017, 2.1, 1000)], color = "black", linestyle = "--", linewidth = 3)
+    ax_ae.plot(n.linspace(1.58, 2.1, 1000), [1 - 1.58 / i for i in n.linspace(1.58, 2.1, 1000)], color = "black", linestyle = "--", linewidth = 3)
+    ax_ae.plot(n.linspace(1.67, 2.1, 1000), [1 - 1.67 / i for i in n.linspace(1.67, 2.1, 1000)], color = "black", linestyle = "--", linewidth = 3)
+    ax_ae.plot(n.linspace(0.6, 0.983, 1000), [0.983 / i - 1 for i in n.linspace(0.6, 0.983, 1000)], color = "black", linestyle = "-.", linewidth = 3)
+    ax_ae.plot([1.0] * 1000, n.linspace(0.0, 0.64, 1000), color = "black", linestyle = "--", linewidth = 1.5)
+    ax_ae.legend(["0 ~ τ/4", "τ/4 ~ τ/2", "τ/2 ~ 3τ/4", "3τ/4 ~ τ", "initial value"]) # τ: simulation time 
+    ax_ae.text(2.05, 1 - 1.67 / 2.1 + 0.01, "q$_{1.67}$", {"fontsize": 14})
+    ax_ae.text(2.05, 1 - 1.3 / 2.1 + 0.01, "q$_{1.3}$", {"fontsize": 14})
+    ax_ae.text(2.05, 1 - 1.58 / 2.1 + 0.01, "q$_{1.58}$", {"fontsize": 14})
+    ax_ae.text(2.05, 1 - 1.017 / 2.1 + 0.01, "q$_{1.017}$", {"fontsize": 14})
+    ax_ae.text(0.6, 0.983 / 0.6 - 1 + 0.01, "Q$_{0.983}$", {"fontsize": 14})
+    Mplot.savefig(f"paraAvsE_jd{jd}_{caseid}.png")
+    Mplot.close()
+    
 # classification  
-
-
+def classify_element(dirname = ""):
+    clone_count = 1
+    
+    rawfile_path = os.path.realpath(sys.argv[0])
+    rawfile_dir  = os.path.dirname(rawfile_path)
+    data_class   = sorted(glob.glob(os.path.join(rawfile_dir + f"/{dirname}", "**", f"clone100*.txt"), recursive = True)) 
+    
+    # collect clone data
+    data_t, data_a, data_e, data_q, data_Q = [], [], [], [], []
+    for rawfile in data_class:
+        if str(jd) in rawfile:  
+            print(f"open {rawfile}...")
+            with open(rawfile, "r") as rf:
+                rawelem = eval(rf.readlines()[0])
+                data_t = [dt * step * t / 365.242199 for t in range(max_points)]
+                data_a += rawelem["element"]["a"]
+                data_e += rawelem["element"]["e"]
+        else:
+            continue
+    data_q += [[data_a[a][i] * (1 - data_e[a][i]) for i in range(len(data_a[a]))] for a in range(len(data_a))]
+    data_Q += [[data_a[a][i] * (1 + data_e[a][i]) for i in range(len(data_a[a]))] for a in range(len(data_a))]
+    
+    clone_count = len(data_a) - (len(data_class) - 2)
+    print("total data:", clone_count)
+    
+    # classification counting
+    print("start classifying the data")
+    q_minus, q_balance, q_plus = 0, -4, 0
+    
+    for cp in range(len(data_a)):
+        asteroid_class_ = []
+        print(f"classify case {cp + 1}/{len(data_a)}")
+        for t in data_t:
+            index_t = data_t.index(t)
+            if data_a[cp][index_t] > 1.0:
+                if 1.017 < data_q[cp][index_t] < 1.3:
+                    #print(f"become Amors at t = {t} yr (data index {index_t})")
+                    asteroid_class_.append("Amor")
+                elif data_q[cp][index_t] < 1.017:
+                    #print(f"become Apollo at t = {t} yr (data index {index_t})")
+                    asteroid_class_.append("Apollo")
+                elif 1.3 < data_q[cp][index_t] < 1.58:
+                    #print(f"become deep mars-crosser at t = {} yr (data index {index_t}")
+                    asteroid_class_.append("dmca")
+                elif 1.58 < data_q[cp][index_t] < 1.67:
+                    #print(f"become shallow mars-crosser at t = {} yr (data index {index_t}")
+                    asteroid_class_.append("smca")
+                else:
+                    continue
+            elif data_a[cp][index_t] < 1.0:
+                if data_Q[cp][index_t] > 0.983:
+                    #print(f"become Atens at t = {t} yr (data index {index_t})")
+                    asteroid_class_.append("Atens")
+                elif data_Q[cp][index_t] < 0.983:
+                    #print(f"become Atiras at t = {t} yr (data index {index_t})")
+                    asteroid_class_.append("Atiras")
+                else:
+                    continue
+            else:
+                continue
+       
+        #counting
+        if asteroid_class_ == [asteroid_class_[0]] * len(data_t):
+            q_balance += 1
+        else: 
+            if data_q[cp][0] > data_q[cp][-1] and data_q[cp][-1] < 1.017:
+                q_minus += 1
+            elif data_q[cp][0] < data_q[cp][-1] and data_q[cp][-1] > 1.3:
+                q_plus += 1
+            else:
+                q_balance += 1
+                continue
+    
+    # print the result
+    print(f"(q-, q_0, q+) = {(q_minus, q_balance, q_plus)}")
+    print(f"probability of ecountering earth's orbit =", round(q_minus / clone_count, 4))
+    print(f"probability of the balance of orbit      =", round(q_balance / clone_count, 4))
+    print(f"probability of escaping earth's orbit    =", round(q_plus / clone_count, 4))
+    
 # main operator
 #rebound_simulation(dt, step, max_points)
 plot_orbital_element(f"/home/xi-feng/NCU/Meeting/clone100_sim_orbital_element_jd{jd}_{caseid}.txt")
-
+#classify_element()
 
 
 
