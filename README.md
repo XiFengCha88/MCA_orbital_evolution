@@ -16,3 +16,6 @@ My recent work in IANCU
   - udpate the python script, "jpl_orbit.py"
 - [20250328]
   - create the python script, "jpl_orbit_clone.py"
+- [20250513]
+  - update the python script, "jpl_orbit_clone.py"
+  - update the python script, "mercury6_obj.py"
