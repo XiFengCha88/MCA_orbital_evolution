@@ -1,18 +1,19 @@
 import os, sys, glob
 import numpy as n
 import matplotlib.pyplot as Mplot
+from find_orb_mpc import obtain_mpcdata
 
 """
 variables
 """
 raw_path = os.path.realpath(sys.argv[0])
 raw_direc = os.path.dirname(raw_path)
-work_direc = "Orbital_Result/Eros/mercury_case2"
+work_direc = "/Orbital_Result/mercury6_20250807"
 classfile = ".aei"
 
 aei_classfile = os.path.join(raw_direc + f"/{work_direc}", "**", f"*{classfile}")
 aei_glob      = glob.glob(aei_classfile, recursive = True)
-aei_file_list = sorted([i if "000" in i else '' for i in aei_glob])
+aei_file_list = sorted([i if "0" in i else '' for i in aei_glob])
 
 #dirpath = "/home/xi-feng/NCU/Meeting/MERCURY/mercury6_smirik/"
 #dirpath = "/home/xi-feng/NCU/Meeting/Orbital_Result/mercury_data_800kyr/"
@@ -230,8 +231,52 @@ def classify_element(dirname = ""):
     print(f"probability of the balance of orbit      =", round(q_balance / clone_count, 4))
     print(f"probability of escaping earth's orbit    =", round(q_plus / clone_count, 4))
 
-plot_orbital_element()
+def plot_multi_orbital_element():
+    mpcidname = n.array(obtain_mpcdata("MPCORB.DAT")).T[-4]
+    rawdata = rec_multi_aeifile()
+    print(mpcidname)
+    caselist = [list(rawdata.keys())[ID] for ID in range(len(list(rawdata.keys())))]
+    for data in caselist:
+        print("loading", data + classfile, "...")
+        orbit_t = rawdata[data]["t"]
+        print("finish loading timescale", f"{len(orbit_t)} values")
+        orbit_a = rawdata[data]["a"]
+        print("finish loading semimajor axis", f"{len(orbit_a)} values")
+        orbit_e = rawdata[data]["e"]
+        print("finish loading eccentricity", f"{len(orbit_e)} values")
+        orbit_i = rawdata[data]["i"]
+        print("finish loading inclination", f"{len(orbit_i)} values")
+        orbit_Ω = rawdata[data]["Ω"]
+        print("finish loading longtitude of accending inode", f"{len(orbit_Ω)} values")
+        orbit_ω = rawdata[data]["ω"]
+        print("finish loading argument of perihelion", f"{len(orbit_ω)} values") 
+        
+        orbit_q = [orbit_a[i] * (1 - orbit_e[i]) for i in range(len(orbit_a))]
+        orbit_Q = [orbit_a[i] * (1 + orbit_e[i]) for i in range(len(orbit_a))]
+        
+        fig = Mplot.figure(figsize = (10, 10))
+        ax_a, ax_e, ax_i, ax_q, ax_Q = fig.subplots(5, 1)
+        if caselist.index(data) > len(mpcidname):
+            continue
+        else:
+            ax_a.set_title(f"Evolution of asteroids {mpcidname[caselist.index(data)]}")
+            ax_a.set_ylim(int(min(orbit_a)), max(orbit_a) + 1)
+            ax_a.set_ylabel("a (au)")
+            ax_e.set_ylabel("e ")
+            ax_i.set_ylabel("i (deg)")
+            ax_q.set_ylabel("q (au)")
+            ax_Q.set_ylabel("Q (au)")
+            ax_Q.set_xlabel("t (Myr)")
+            ax_a.plot(orbit_t, orbit_a, color = "black", linewidth = 2)
+            ax_e.plot(orbit_t, orbit_e, color = "black", linewidth = 2)
+            ax_i.plot(orbit_t, orbit_i, color = "black", linewidth = 2)
+            ax_q.plot(orbit_t, orbit_q, color = "black", linewidth = 2)
+            ax_Q.plot(orbit_t, orbit_Q, color = "black", linewidth = 2)
+            Mplot.savefig(f"evo_{data}.png")
+            Mplot.close()
+        
+#plot_orbital_element()
 #classify_element("Orbital_Result/Eros/")
-
+plot_multi_orbital_element()
 
 
