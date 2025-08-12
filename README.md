@@ -19,3 +19,6 @@ My recent work in IANCU
 - [20250513]
   - update the python script, "jpl_orbit_clone.py"
   - update the python script, "mercury6_obj.py"
+- [20250812]
+  - create the python script, "find_orb_mpc.py"
+  - update the python script, "mercury6_obj.py"
