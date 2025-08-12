@@ -1,0 +1,2 @@
+- Results of asteroids with conditions 0.8 au < q < 2.0 au and H < 10
+- evolution for 800,000 yr
