@@ -2,6 +2,9 @@ import os, sys, glob
 import numpy as n
 import matplotlib.pyplot as Mplot
 import time
+import urllib.request as ur
+from bs4 import BeautifulSoup as bs
+import json
 
 # mpc raw data
 data_name = "MPCORB"
@@ -22,8 +25,9 @@ mpc_obj = []
 # boundary condition
 q_min, q_max = 0.8, 2.0
 i_min, i_max = 0.0, 45.0
-mpc_H_min = 10
-mpc_H_max = 10
+mpc_H_min = 22.65
+mpc_H_max = 22.86
+lim_condi_code = 3
 
 # mercury6 setup
 coor_mode_list = ("Cartesian", "Asteroidal", "Cometary")
@@ -68,7 +72,7 @@ def obtain_mpcdata(mpcdat):
         # add condition filter
         if condition == True:
             if q_min < mpc_q < q_max:
-                if mpc_H < mpc_H_max:
+                if mpc_H_min < mpc_H < mpc_H_max:
                     mpc_obj.append([mpc_id, mpc_a, mpc_e, mpc_i, mpc_q, mpc_H, mpc_name, mpc_O, mpc_o, mpc_M])
                 else:
                     continue
@@ -97,6 +101,7 @@ def plot_qi_distribution():
     
     #print(max(mpc_i), "at", list(mpc_id)[list(mpc_i).index(max(mpc_i))])
     
+    """
     print("=== LIST OF DATA POINT ===")
     print("id", "name" + "\t" * (int(max(len_name)/8)), "a (au)", "e", "i (deg)", "H", "D (km)", sep = "\t")
     for mpc in range(len(mpc_id)):
@@ -106,6 +111,7 @@ def plot_qi_distribution():
            print(mpc_id[mpc], mpc_name[mpc] + "\t" * (int(max(len_name)/8)), 
                  round(mpc_a[mpc], 4), round(mpc_e[mpc], 4), round(mpc_i[mpc], 4), mpc_H[mpc], round(mpc_D[mpc], 4), sep = "\t")
     print("==========================")
+    """
     
     # histogram with i vs number
     figni = Mplot.figure(figsize = (10, 10))
@@ -122,7 +128,7 @@ def plot_qi_distribution():
     Mplot.close()
     
     figqi = Mplot.figure(figsize = (10, 10)) 
-    Mplot.suptitle(f"q-i distribution of minor planets between q = {q_min} ~ {q_max} au ({mpc_H_min} < H < {mpc_H_max})")
+    Mplot.suptitle(f"q-i distribution of minor planets between q = {q_min} ~ {q_max} au (995-m < D < 1005-m)")
     axqi1 = figqi.add_axes([0.07, 0.07, 0.6, 0.6])
     axqi1.set_xlabel("q (au)")
     axqi1.set_ylabel("i (deg)")
@@ -167,27 +173,92 @@ def rec_smallin(rawfile):
         mpc_o = [float(v) for v in mpc_o]
         mpc_O = [float(v) for v in mpc_O]
         mpc_M = [float(v) for v in mpc_M]
+        
+        # add condition code from SBDB
+        max_condi_code = lim_condi_code
+        condi_code = []
+        for datacase in mpc_id:
+            try:
+                print(f"obtain condition code of mpcid {datacase} ({list(mpc_id).index(datacase)+1})")
+                sbdb_api = f"https://ssd-api.jpl.nasa.gov/sbdb.api?sstr={datacase}"
+                sbdb_url = ur.urlopen(sbdb_api)
+                sbdb_soup = bs(sbdb_url, "html.parser").decode("utf-8")
+                condi_obj = float(json.loads(sbdb_soup, strict = False)["orbit"]["condition_code"])
+                condi_code.append(condi_obj)
+            except KeyError:
+                continue
+
+        # record small.in
         rf.write(")O+_06 Small-body initial data  (WARNING: Do not delete this line!!)\n")
         rf.write(") Lines beginning with ')' are ignored.\n")
         rf.write(")---------------------------------------------------------------------\n")
         rf.write(f" style (Cartesian, Asteroidal, Cometary) = {selected_mode}\n")
         rf.write(")---------------------------------------------------------------------\n")
-        for i in range(len(mpc_id)):
-            rf.write(str(mpc_id[i]) + " " + "ep=2460844.5d0\n")
-            rf.write(str(mpc_a[i]) + "d0 ")
-            rf.write(str(mpc_e[i]) + "d0 ")
-            rf.write(str(mpc_i[i]) + "d0 ")
-            rf.write(str(mpc_O[i]) + "d0 ")
-            rf.write(str(mpc_o[i]) + "d0 ")
-            rf.write(str(mpc_M[i]) + "d0 ")
-            rf.write(("0d0" + " ") * 3)
-            rf.write("\n")
+        
+        cc = 0
+        for i in range(len(condi_code)):
+            if condi_code[i] <= max_condi_code:
+                rf.write(str(mpc_id[i]) + " " + f"ep=2460800.5d0\n") # 2025-05-05
+                rf.write(str(mpc_a[i]) + "d0 ")
+                rf.write(str(mpc_e[i]) + "d0 ")
+                rf.write(str(mpc_i[i]) + "d0 ")
+                rf.write(str(mpc_O[i]) + "d0 ")
+                rf.write(str(mpc_o[i]) + "d0 ")
+                rf.write(str(mpc_M[i]) + "d0 ")
+                rf.write(("0d0" + " ") * 3)
+                rf.write("\n")
+                cc += 1
+            else:
+                continue
+    print(f"filtered {cc} data within condition code") # cc < 3
     print(f"finish recording {rawfile}")
 
+def rec_yarkovsky_in(rawfile):
+    print("begin writing yarkovsky.in ...")
+    with open(rawfile, "w", encoding = "utf-8") as rf:
+        # obtain orbital element
+        array_mpc_obj = n.array(mpc_obj)
+        mpc_id, mpc_a, mpc_e, mpc_i, mpc_q, mpc_H, mpc_name, mpc_O, mpc_o, mpc_M = array_mpc_obj.T
+        albedo = 0.14
+        mpc_D = [(1329*10**(-0.2 * float(v)))/(albedo**0.5) for v in mpc_H]
+        
+        # add condition code from SBDB
+        max_condi_code = lim_condi_code
+        condi_code = []
+        for datacase in mpc_id:
+            try:
+                print(f"obtain condition code of mpcid {datacase} ({list(mpc_id).index(datacase)+1})")
+                sbdb_api = f"https://ssd-api.jpl.nasa.gov/sbdb.api?sstr={datacase}"
+                sbdb_url = ur.urlopen(sbdb_api)
+                sbdb_soup = bs(sbdb_url, "html.parser").decode("utf-8")
+                condi_obj = float(json.loads(sbdb_soup, strict = False)["orbit"]["condition_code"])
+                condi_code.append(condi_obj)
+            except KeyError:
+                continue
+        
+        cc = 0
+        #yorp parameter
+        mpc_density = 2500
+        thermal_conductivity = 0.1
+        heat_capacity = 800
+        obiliquity = 0
+        rotational_period = 4
+        
+        
+        for i in range(len(condi_code)):
+            if condi_code[i] <= max_condi_code:
+                rf.write(f"{mpc_id[i]} {mpc_density} {thermal_conductivity} {heat_capacity} {mpc_D[i]} {obiliquity} {rotational_period} {1.0} {1.0}\n")
+                cc += 1
+            else:
+                continue
+    print(f"filtered {cc} data within condition code") # cc < 3
+    print(f"finish recording {rawfile}")
+        
 """
 main code
 """
-#obtain_mpcdata(glob_dat[0])
+obtain_mpcdata(glob_dat[0])
 #plot_qi_distribution()
-#rec_smallin("small.in")
+rec_smallin("small.in")
+rec_yarkovsky_in("yarkovsky.in")
 
